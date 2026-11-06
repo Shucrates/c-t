@@ -1,5 +1,6 @@
 {
-  "description": "This interactive email assistant analyzes incoming messages, providing users with confidence scores and flagging suspicious content for enhanced security.",
+  "title": "c@t",
+  "description": "c@t is an email app with a friendly cat assistant that checks each email for scams, explains it in plain words, and helps you decide what to do.",
   "robots": {
     "index": false
   },
