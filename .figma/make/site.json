@@ -1,0 +1,10 @@
+{
+  "description": "This interactive email assistant analyzes incoming messages, providing users with confidence scores and flagging suspicious content for enhanced security.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
