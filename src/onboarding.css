@@ -1,0 +1,289 @@
+/* ------------------------------------------------------------ Onboarding */
+/* Monochrome, paper-calm: off-white page, one black cat, one black pill button,
+   serif questions that write themselves in word by word. */
+
+.ob {
+  --ob-bg: #f7f7f5;
+  --ob-ink: #141414;
+  --ob-ink-2: #3c3c3c;
+  --ob-ink-3: #8a8a85;
+  --ob-line: #141414;
+  --ob-hair: #d9d9d4;
+  --ob-field: #ffffff;
+  --ob-stroke: 1.5px;
+  --ob-serif: 'Instrument Serif', 'Iowan Old Style', 'Times New Roman', serif;
+  min-height: 100dvh;
+  background: var(--ob-bg);
+  color: var(--ob-ink);
+  display: flex;
+  justify-content: center;
+}
+.ob[data-contrast='high'] { --ob-ink-2: #141414; --ob-ink-3: #3c3c3c; --ob-hair: #767671; --ob-stroke: 2.5px; }
+
+.ob-col {
+  width: 100%;
+  max-width: 26rem;
+  min-height: 100dvh;
+  padding: max(1.25rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ------------------------------------------------------------- Top bar */
+.ob-top { width: 100%; min-height: 5.25rem; display: flex; justify-content: center; align-items: flex-start; padding-top: 1rem; }
+
+.ob-lang { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.ob-lang-label { font-size: 1.0625rem; font-weight: 600; text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 1.5px; }
+.ob-lang-pill {
+  position: relative; display: inline-flex; align-items: center; gap: 0.5rem;
+  height: 2.75rem; padding: 0 1rem 0 0.375rem;
+  border: var(--ob-stroke) solid var(--ob-line); border-radius: 999px; background: var(--ob-field);
+  transition: transform 0.2s var(--ease-out);
+}
+.ob-lang-pill:active { transform: scale(0.97); }
+.ob-lang-pill:focus-within { outline: 3px solid var(--focus); outline-offset: 3px; }
+.ob-lang select {
+  appearance: none; field-sizing: content; max-width: 11rem;
+  border: 0; background: transparent; font-size: 1.1875rem; font-weight: 600; color: var(--ob-ink);
+  padding-inline-end: 1.25rem; margin-inline-end: -1.25rem; cursor: pointer; outline: none;
+}
+.ob-globe { width: 2rem; height: 2rem; fill: none; stroke: var(--ob-ink); stroke-width: 1.6; stroke-linecap: round; }
+.ob-chev { width: 0.75rem; height: 0.5rem; fill: none; stroke: var(--ob-ink); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+
+.ob-nav { width: 100%; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 1rem; }
+.ob-back {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  min-height: 2.75rem; padding: 0 0.5rem 0 0.25rem; margin-inline-start: -0.25rem;
+  border: 0; background: transparent; font-size: 1.0625rem; font-weight: 600;
+}
+.ob-back:disabled { opacity: 0.3; }
+.ob-back svg { width: 0.6rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Step indicator: six short strokes that fill in black, with a quiet "2 of 6" */
+.ob-progress { display: flex; flex-direction: column; align-items: flex-end; gap: 0.45rem; animation: ob-fade 0.5s var(--ease-out) both; }
+.ob-progress-label { font-size: 0.875rem; font-weight: 600; color: var(--ob-ink-2); font-variant-numeric: tabular-nums; }
+.ob-progress-track { display: flex; gap: 0.3rem; width: 100%; max-width: 15rem; }
+.ob-seg { position: relative; flex: 1; height: 4px; border-radius: 4px; background: var(--ob-hair); overflow: hidden; }
+.ob-seg::after { content: ''; position: absolute; inset: 0; background: var(--ob-ink); transform: scaleX(0); transform-origin: left center; transition: transform 0.6s var(--ease-out) 0.15s; }
+.ob-seg[data-filled]::after { transform: scaleX(1); }
+
+/* ------------------------------------------------------------- The cat stage */
+/* Big and centred on the welcome page, tucks up small for the name, comes back for the end */
+.ob-stage { flex: 1 1 auto; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; transition: opacity 0.26s var(--ease-out), transform 0.26s var(--ease-out); }
+.ob-stage[data-leaving] { opacity: 0; transform: scale(0.9); }
+.ob[data-step='name'] .ob-stage, .ob[data-step='done'] .ob-stage { flex: 0 0 auto; }
+.ob-cat { width: min(19rem, 78vw); }
+.ob[data-step='name'] .ob-cat { width: 9rem; margin: 0.25rem 0 1.25rem; transform-origin: 50% 0; animation: ob-cat-tuck 0.8s var(--ease-out) both; }
+.ob[data-step='done'] .ob-cat { width: 11rem; margin: 1.5rem 0 1rem; animation: ob-cat-pop 0.7s var(--ease-out) both; }
+@keyframes ob-cat-tuck { from { transform: translateY(45%) scale(2); } }
+@keyframes ob-cat-pop { from { opacity: 0; transform: translateY(12px) scale(0.85); } }
+
+/* ------------------------------------------------------------- Scenes */
+.ob-scene { width: 100%; display: flex; flex-direction: column; transition: opacity 0.26s ease-in, transform 0.26s ease-in, filter 0.26s ease-in; }
+.ob:not([data-step='welcome']) .ob-scene { flex: 1 1 auto; }
+.ob-scene[data-leaving] { opacity: 0; transform: translateY(-10px); filter: blur(4px); }
+
+.ob-copy { width: 100%; text-align: center; display: flex; flex-direction: column; }
+.ob-copy-left { text-align: start; padding-top: 1rem; }
+
+.ob-title {
+  font-family: var(--ob-serif); font-weight: 400;
+  font-size: clamp(3rem, 15vw, 4.25rem); line-height: 0.98; letter-spacing: -0.015em;
+  margin: 0; outline: none;
+}
+.ob:not([data-step='welcome']) .ob-title { font-size: clamp(2.5rem, 12vw, 3.25rem); line-height: 1.02; }
+.ob-body { margin: 1rem 0 0; font-size: 1.1875rem; line-height: 1.38; color: var(--ob-ink-2); }
+.ob-copy:not(.ob-copy-left) .ob-body { margin-inline: auto; max-width: 21rem; }
+
+/* Word-by-word reveal: each word rises and comes into focus a beat after the last */
+.ob-w { display: inline-block; animation: ob-word 0.75s var(--ease-out) both; animation-delay: calc(var(--i) * 60ms + var(--d, 0ms)); }
+@keyframes ob-word { from { opacity: 0; transform: translateY(0.35em); filter: blur(8px); } }
+.ob-after { animation: ob-after 0.7s var(--ease-out) both; animation-delay: var(--d, 0ms); }
+@keyframes ob-after { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } }
+@keyframes ob-fade { from { opacity: 0; } }
+
+/* ------------------------------------------------------------- Dash inputs */
+/* Words written straight onto a line, in the heading serif: no box */
+.ob-dash { display: flex; flex-direction: column; align-items: center; margin-top: 1.75rem; }
+.ob-dash input {
+  min-width: 5ch; max-width: 100%;
+  padding: 0 0.25rem 0.1rem;
+  border: 0; border-bottom: 2.5px solid var(--ob-line); border-radius: 0;
+  background: transparent; color: var(--ob-ink);
+  font-family: var(--ob-serif); font-size: 3.25rem; line-height: 1.15; text-align: center;
+  caret-color: var(--ob-ink); outline: none;
+}
+.ob-dash input:focus-visible { border-bottom-color: var(--ob-ink); box-shadow: 0 3px 0 0 var(--ob-ink); }
+.ob-dash[data-align='start'] { align-items: stretch; margin-top: 1.5rem; }
+.ob-dash[data-small] input { width: 100%; font-size: 2.25rem; text-align: start; padding-inline: 0; border-bottom-width: var(--ob-stroke); }
+.ob-dash[data-small] input:focus-visible { box-shadow: 0 1.5px 0 0 var(--ob-ink); }
+.ob-label { font-size: 0.9375rem; font-weight: 600; color: var(--ob-ink-2); }
+.ob-fields { margin-top: 0.5rem; }
+.ob-tip { margin: 1.75rem 0 0; font-size: 1rem; line-height: 1.4; color: var(--ob-ink-2); font-style: italic; }
+
+/* ------------------------------------------------------------- Illustrations */
+.ob-art { margin-top: 2rem; }
+.ob-card {
+  border: var(--ob-stroke) solid var(--ob-line); border-radius: 1.75rem; background: var(--ob-field);
+  padding: 1rem; display: flex; flex-direction: column; gap: 1rem;
+}
+.ob-verdict {
+  display: flex; align-items: center; gap: 0.6rem; align-self: flex-start;
+  height: 3rem; padding: 0 1.25rem 0 0.5rem; border-radius: 999px;
+  background: var(--ob-ink); color: #fff; font-size: 1.125rem; font-weight: 600;
+  animation: ob-verdict 0.5s var(--ease-out) both;
+}
+.ob-verdict-cat { width: 2.25rem; --ob-ink: #fff; --ob-bg: #141414; }
+@keyframes ob-verdict { from { opacity: 0; transform: translateY(-6px) scale(0.96); filter: blur(3px); } }
+.ob-mail { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.25rem 0.25rem 0.5rem; }
+.ob-mail-from { font-size: 1rem; font-weight: 600; color: var(--ob-ink-2); }
+.ob-line { height: 0.55rem; border-radius: 1rem; background: var(--ob-hair); }
+
+.ob-link-card { gap: 0.75rem; }
+.ob-risky { font-size: 1.25rem; font-weight: 600; color: var(--ob-ink); }
+.ob-risky-text { position: relative; display: inline-block; text-decoration: underline; text-underline-offset: 0.18em; animation: ob-risky 0.5s ease 1.4s both; }
+@keyframes ob-risky { to { color: var(--ob-ink-3); } }
+.ob-strike { position: absolute; inset: 0.2em -0.2em auto; width: calc(100% + 0.4em); height: 1em; overflow: visible; }
+.ob-strike path { fill: none; stroke: var(--ob-ink); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: sc-draw 0.5s var(--ease-out) 1.35s forwards; }
+.ob-locked {
+  display: inline-flex; align-items: center; gap: 0.5rem; align-self: flex-start;
+  height: 2.75rem; padding: 0 1.1rem 0 0.8rem; border-radius: 999px; background: var(--ob-ink); color: #fff;
+  font-size: 1.0625rem; font-weight: 600;
+  animation: ob-verdict 0.5s var(--ease-out) 1.6s both;
+}
+.ob-lock { width: 1.35rem; height: 1.35rem; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+.ob-lock rect { fill: #fff; }
+.ob-shackle { animation: ob-shackle 0.45s var(--ease-out) 1.9s both; }
+@keyframes ob-shackle { from { transform: translateY(-4px) rotate(-14deg); transform-origin: 16px 11px; } }
+
+/* Reading */
+.ob-letter {
+  border: var(--ob-stroke) solid var(--ob-line); border-radius: 1.5rem; background: var(--ob-field);
+  padding: 1.1rem 1.25rem; line-height: 1.4; color: var(--ob-ink);
+}
+.ob-sizes { border: 0; padding: 0; margin: 1.5rem 0 0; }
+.ob-sizes legend { padding: 0; margin-bottom: 0.5rem; }
+.ob-seg-control { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; padding: 0.25rem; border: var(--ob-stroke) solid var(--ob-line); border-radius: 999px; background: var(--ob-field); }
+.ob-size { position: relative; height: 3rem; border-radius: 999px; display: grid; place-items: center; cursor: pointer; font-family: var(--ob-serif); transition: background-color 0.25s var(--ease-out), color 0.25s var(--ease-out); }
+.ob-size input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.ob-size:has(input:checked) { background: var(--ob-ink); color: #fff; }
+.ob-size:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.ob-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.25rem; padding: 0.25rem 0; cursor: pointer; }
+.ob-switch-title { display: block; font-size: 1.125rem; font-weight: 600; }
+.ob-switch-note { display: block; font-size: 0.9375rem; color: var(--ob-ink-2); margin-top: 0.1rem; }
+.ob-switch {
+  appearance: none; flex: none; position: relative; width: 3.5rem; height: 2rem; border-radius: 999px; margin: 0;
+  border: var(--ob-stroke) solid var(--ob-line); background: var(--ob-field); cursor: pointer;
+  transition: background-color 0.25s var(--ease-out);
+}
+.ob-switch::after { content: ''; position: absolute; top: 50%; left: 0.2rem; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--ob-ink); transform: translateY(-50%); transition: transform 0.35s var(--ease-out), background-color 0.25s; }
+.ob-switch:checked { background: var(--ob-ink); }
+.ob-switch:checked::after { background: #fff; transform: translate(1.45rem, -50%); }
+
+/* Done */
+.ob-checks { list-style: none; margin: 1.5rem auto 0; padding: 0; display: flex; flex-direction: column; gap: 0.85rem; text-align: start; font-size: 1.1875rem; line-height: 1.3; }
+.ob-checks li { display: flex; align-items: center; gap: 0.75rem; animation: ob-after 0.6s var(--ease-out) both; animation-delay: calc(500ms + var(--i) * 140ms); }
+.ob-checks svg { flex: none; width: 1.75rem; height: 1.75rem; padding: 0.3rem; border-radius: 50%; background: var(--ob-ink); fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.ob-checks path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: sc-draw 0.4s var(--ease-out) forwards; animation-delay: calc(750ms + var(--i) * 140ms); }
+
+/* ------------------------------------------------------------- Footer */
+.ob-foot { width: 100%; padding-top: 1.5rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.ob-button {
+  width: 100%; height: 4rem; border: 0; border-radius: 999px;
+  background: var(--ob-ink); color: #fff; font-size: 1.375rem; font-weight: 500; letter-spacing: -0.01em;
+  transition: transform 0.2s var(--ease-out), opacity 0.3s var(--ease-out);
+}
+.ob-button:active:not(:disabled) { transform: scale(0.975); }
+.ob-button:disabled { opacity: 0.25; cursor: default; }
+.ob[data-step='welcome'] .ob-button:disabled { opacity: 1; }
+.ob-skip { min-height: 2.75rem; padding: 0 1rem; border: 0; background: transparent; font-size: 1.0625rem; font-weight: 600; text-decoration: underline; text-underline-offset: 0.2em; }
+
+
+/* ---------------------------------------------------------------- The cat */
+
+.sc { display: block; width: 100%; height: auto; overflow: visible; }
+.sc-body, .sc-tail { fill: var(--ob-ink, var(--ink, #141414)); }
+.sc-tail { stroke: var(--ob-bg, var(--paper, #f7f7f5)); stroke-width: 7; paint-order: stroke; }
+.sc-line, .sc-eyes-closed path, .sc-mouth { fill: none; stroke: var(--ob-bg, var(--paper, #f7f7f5)); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.sc-eyes-closed path, .sc-mouth { stroke-width: 5.5; }
+.sc-mouth-o { fill: var(--ob-bg, var(--paper, #f7f7f5)); }
+.sc-eye > ellipse:first-child { fill: var(--ob-bg, var(--paper, #f7f7f5)); }
+.sc-pupil { fill: var(--ob-ink, var(--ink, #141414)); transition: transform 0.35s var(--ease-out); }
+
+/* Any group/element we transform rotates and scales round its own box */
+.sc-pose, .sc-breathe, .sc-tail, .sc-eye, .sc-z { transform-box: fill-box; }
+.sc-pose { transform-origin: 50% 100%; transition: transform 0.6s var(--ease-out); }
+.sc-breathe { transform-origin: 50% 100%; }
+.sc-tail { transform-origin: 0% 50%; }
+.sc-eye { transform-origin: 50% 50%; }
+
+/* Sleep: slow breathing, tail barely twitching, Zs drifting off */
+.sc-sleep .sc-breathe { animation: sc-breathe 3.8s ease-in-out infinite; }
+.sc-sleep .sc-tail { animation: sc-tail-sleep 3.8s ease-in-out infinite; }
+@keyframes sc-breathe { 0%, 100% { transform: scale(1, 1); } 45% { transform: scale(1.025, 1.045); } }
+@keyframes sc-tail-sleep { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-6deg); } }
+
+.sc-z { transform-origin: 0 100%; animation: sc-z-float 3.45s ease-out infinite both; }
+.sc-z path { fill: none; stroke: var(--ob-ink, var(--ink, #141414)); stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1; animation: sc-z-draw 3.45s linear infinite both; }
+@keyframes sc-z-float {
+  0% { transform: translate(178px, 30px) scale(0.6) rotate(-8deg); opacity: 0; }
+  10% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(222px, -36px) scale(1.25) rotate(10deg); opacity: 0; }
+}
+@keyframes sc-z-draw { 0% { stroke-dashoffset: 1; } 18%, 100% { stroke-dashoffset: 0; } }
+
+/* Waking: startle squash, jump up and stretch, then settle */
+.sc-waking .sc-pose { animation: sc-startle 0.9s var(--ease-out) both; }
+@keyframes sc-startle {
+  0% { transform: scale(1, 1); }
+  14% { transform: scale(1.08, 0.88); }
+  38% { transform: translateY(-14%) scale(0.94, 1.1) rotate(-3deg); }
+  62% { transform: translateY(0) scale(1.05, 0.95) rotate(2deg); }
+  82% { transform: scale(0.99, 1.02); }
+  100% { transform: scale(1, 1); }
+}
+.sc-waking .sc-tail { animation: sc-tail-flick 0.5s ease-in-out 2; }
+.sc-marks path { fill: none; stroke: var(--ob-ink, var(--ink, #141414)); stroke-width: 5; stroke-linecap: round; }
+.sc-marks { animation: sc-marks-fade 0.9s ease-out both; }
+@keyframes sc-marks-fade { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Lines that draw themselves on (pathLength=1) */
+.sc-draw path { stroke-dasharray: 1; animation: sc-draw 0.35s var(--ease-out) both; }
+.sc-draw path:nth-child(2) { animation-delay: 0.06s; }
+.sc-draw path:nth-child(3) { animation-delay: 0.12s; }
+.sc-draw path:nth-child(4) { animation-delay: 0.18s; }
+@keyframes sc-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+/* Awake: lighter breathing, a blink every few seconds, lazy tail swish */
+.sc-awake .sc-breathe, .sc-curious .sc-breathe, .sc-happy .sc-breathe { animation: sc-breathe-awake 2.6s ease-in-out infinite; }
+@keyframes sc-breathe-awake { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.022); } }
+.sc-eyes-open .sc-eye { animation: sc-open 0.3s var(--ease-out) both, sc-blink 4.6s ease-in-out 1.2s infinite; }
+@keyframes sc-open { from { transform: scaleY(0.1); } }
+@keyframes sc-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.08); } }
+.sc-awake .sc-tail, .sc-curious .sc-tail { animation: sc-tail-swish 2.8s ease-in-out infinite; }
+@keyframes sc-tail-swish { 0%, 100% { transform: rotate(0); } 40% { transform: rotate(-14deg); } 60% { transform: rotate(4deg); } }
+@keyframes sc-tail-flick { 50% { transform: rotate(-24deg); } }
+
+/* Curious (you're typing your name): head tilts, eyes look down at the field */
+.sc-curious .sc-pose { transform: rotate(-6deg); }
+.sc-curious .sc-pupil { transform: translate(-1px, 3px); }
+
+/* Happy: little hop, fast tail */
+.sc-happy .sc-pose { animation: sc-hop 0.7s var(--ease-out) 2 both; }
+.sc-happy .sc-tail { animation: sc-tail-flick 0.35s ease-in-out infinite; }
+@keyframes sc-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  25% { transform: translateY(0) scale(1.06, 0.92); }
+  55% { transform: translateY(-10%) scale(0.97, 1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob *, .sc * { animation: none !important; transition: none !important; }
+  .sc-z { opacity: 1; }
+  .sc-z:nth-child(1) { transform: translate(180px, 20px) scale(0.8); }
+  .sc-z:nth-child(2) { transform: translate(198px, 0) scale(1); }
+  .sc-z:nth-child(3) { transform: translate(218px, -24px) scale(1.2); }
+  .sc-z path, .ob-strike path, .ob-checks path { stroke-dashoffset: 0; }
+}

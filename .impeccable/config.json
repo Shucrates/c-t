@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "instrument serif",
+        "createdAt": "2026-11-13T16:34:46.493Z",
+        "reason": "User confirmed instrument serif is intentional"
+      }
+    ]
+  }
+}

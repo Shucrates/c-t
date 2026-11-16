@@ -1,0 +1,56 @@
+/* Muted colour theme (the default; ?theme=mono shows the black-and-white version).
+   Warm oat paper, deep green-slate ink instead of black, softer clay and sage verdicts.
+   Every text colour keeps at least 4.5:1 contrast on its background. */
+
+:root[data-theme='muted'] {
+  --paper: #f2eee6;
+  --card: #fbf9f4;
+  --ink: #2c3b36;
+  --ink-2: #47524d;
+  --ink-3: #626b65;
+  --line: #a9b0a4;
+  --hair: #ddd7cb;
+  --scam: #a2453a;
+  --scam-bg: #f5e3dd;
+  --safe: #4b6b52;
+  --safe-bg: #e3ebe0;
+  --focus: #3b6ea5;
+}
+:root[data-theme='muted'] body,
+:root[data-theme='muted'] html { background: var(--paper); }
+:root[data-theme='muted'] { background: #f2eee6; color: #2c3b36; }
+
+/* Strong contrast still wins: darker ink and borders, but keeps the warm paper */
+:root[data-theme='muted'][data-contrast='high'] {
+  --ink: #1d2925;
+  --ink-2: #1d2925;
+  --ink-3: #2c3b36;
+  --line: #1d2925;
+  --hair: #4f5a55;
+  --scam: #7e2a20;
+  --safe: #2f4a35;
+}
+
+/* Small inverted cats (inside the dark speech bubble) */
+:root[data-theme='muted'] .m-bubble-cat-face { --paper: #2c3b36; --ink: #fbf9f4; }
+:root[data-theme='muted'] .m-btn-primary,
+:root[data-theme='muted'] .m-switch-folders button[aria-pressed='true'],
+:root[data-theme='muted'] .m-comfort-btn[aria-pressed='true'] { color: #fbf9f4; }
+:root[data-theme='muted'] .m-comfort { box-shadow: 0 8px 24px rgb(44 59 54 / 0.08); }
+
+/* Onboarding uses its own variables */
+:root[data-theme='muted'] .ob {
+  --ob-bg: #f2eee6;
+  --ob-ink: #2c3b36;
+  --ob-ink-2: #47524d;
+  --ob-ink-3: #626b65;
+  --ob-line: #a9b0a4;
+  --ob-hair: #ddd7cb;
+  --ob-field: #fbf9f4;
+}
+:root[data-theme='muted'] .ob[data-contrast='high'] { --ob-ink: #1d2925; --ob-ink-2: #1d2925; --ob-line: #1d2925; --ob-hair: #626b65; }
+:root[data-theme='muted'] .ob-verdict-cat { --ob-ink: #fbf9f4; --ob-bg: #2c3b36; }
+:root[data-theme='muted'] .ob-button,
+:root[data-theme='muted'] .ob-verdict,
+:root[data-theme='muted'] .ob-locked { color: #fbf9f4; }
+:root[data-theme='muted'] .ob-dash input { border-bottom-color: #2c3b36; }
