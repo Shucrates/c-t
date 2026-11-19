@@ -232,7 +232,7 @@ export function Onboarding({
               <Reveal as="h1" className="ob-title" text="Is this easy to read?" />
               <After delay={360} className="ob-art">
                 <div className="ob-letter" style={{ fontSize: `${SIZES[sizeIndex] * 1.15}px` }}>
-                  Dear {trimmed || 'Arthur'}, see you on Sunday. Love, Anna
+                  Dear {trimmed || 'Arthur'}, see you on Sunday. Love, Arthur
                 </div>
               </After>
               <After delay={520}>
@@ -383,7 +383,7 @@ function AnswerArt() {
         <span className="ob-verdict-text">{scam ? 'Likely a scam' : 'Looks safe'}</span>
       </div>
       <div className="ob-mail">
-        <span className="ob-mail-from">From: {scam ? 'Your Bank Support' : 'Anna'}</span>
+        <span className="ob-mail-from">From: {scam ? 'Your Bank Support' : 'Arthur'}</span>
         <span className="ob-line" style={{ width: '92%' }} />
         <span className="ob-line" style={{ width: '78%' }} />
         <span className="ob-line" style={{ width: '64%' }} />
