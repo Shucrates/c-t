@@ -24,7 +24,6 @@ type Screen =
   | { name: 'checking'; id: number }
   | { name: 'warning'; id: number }
   | { name: 'anyway'; id: number }
-  | { name: 'breather'; id: number }
   | { name: 'why'; id: number }
   | { name: 'questions'; id: number; step: 0 | 1 }
   | { name: 'answer'; id: number }
@@ -36,6 +35,7 @@ type Screen =
   | { name: 'sent'; id?: number; mode: 'sent' | 'calling' }
   | { name: 'pause'; id: number }
   | { name: 'write'; replyTo?: number }
+  | { name: 'sentMail'; id: number }
   | { name: 'help' }
   | { name: 'how' }
   | { name: 'oops' }
@@ -45,6 +45,10 @@ type Screen =
 type Answer = 'yes' | 'no' | 'unsure'
 type Toast = { text: string; undo?: () => void; id: number }
 type SheetName = null | 'size' | 'lang' | 'check' | 'more' | 'confirm'
+
+// A link tapped this soon after opening its email gets the breather first
+const FAST_TAP_MS = 10000
+const BREATHER_MS = 8000
 
 const ICON_OK = { warning: 1, clock: 1, card: 1, lock: 1 }
 
@@ -70,8 +74,8 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
   const t = useMemo(() => translator(lang), [lang])
   const tf = (key: StringKey, vars: Record<string, string | number>) => fill(t(key), vars)
   const langInfo = languages.find((l) => l.code === lang) ?? languages[0]
-  const anna = trusted.name.trim()
-  const { speaking, speak, stop, supported: canSpeak, slow, toggleSlow } = useSpeech(lang)
+  const trustedPerson = trusted.name.trim()
+  const { speaking, loading: voiceLoading, speak, stop, supported: canSpeak, slow, toggleSlow } = useSpeech(lang)
   const voice = useListen(lang)
 
   useEffect(() => {
@@ -87,7 +91,11 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
   const [mails, setMails] = useState<Mail[]>(() => [...MAILS, ...FOLDER_MAILS])
   const [checked, setChecked] = useState<Set<number>>(new Set())
   const [answers, setAnswers] = useState<Record<number, Answer[]>>({})
-  const [folder, setFolder] = useState<'inbox' | 'scam'>('inbox')
+  const [folder, setFolder] = useState<'inbox' | 'scam' | 'sent'>('inbox')
+  // Everything the person sends from here, newest first
+  const [sentMails, setSentMails] = useState<SentMail[]>([])
+  const recordSent = (to: string, subject: string, text: string) =>
+    setSentMails((list) => [{ id: Date.now(), to, subject, text, time: new Date().toLocaleTimeString(langInfo.speech, { hour: '2-digit', minute: '2-digit' }) }, ...list])
   const [query, setQuery] = useState('')
   const [lastMail, setLastMail] = useState<number | null>(null)
   const byId = (id: number) => mails.find((m) => m.id === id)!
@@ -106,7 +114,23 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
       return i >= 0 ? st.slice(0, i + 1) : [{ name: 'inbox' }]
     })
 
+  // When an email was opened, so a quick tap on its link (likely in a hurry) gets a breather first
+  const openedAt = useRef(0)
+  const [breathing, setBreathing] = useState(false)
+  const tapLink = (id: number) => {
+    setBreathing(Date.now() - openedAt.current < FAST_TAP_MS)
+    go({ name: 'pause', id })
+  }
+
+  // The breather ends by itself after a few breaths, or sooner if the person continues
+  useEffect(() => {
+    if (screen.name !== 'pause' || !breathing) return
+    const timer = window.setTimeout(() => setBreathing(false), BREATHER_MS)
+    return () => window.clearTimeout(timer)
+  }, [screen, breathing])
+
   const openMail = (m: Mail) => {
+    openedAt.current = Date.now()
     setLastMail(m.id)
     if (m.verdict === 'safe') go({ name: 'read', id: m.id })
     else go({ name: checked.has(m.id) ? 'warning' : 'checking', id: m.id })
@@ -128,7 +152,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
   useEffect(() => {
     mainRef.current?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true })
     window.scrollTo({ top: 0 })
-  }, [stack.length, screen.name])
+  }, [stack.length, screen.name, breathing])
 
   /* ------------------------------------------------------------ Toasts + sheets */
   const [toast, setToast] = useState<Toast | null>(null)
@@ -161,7 +185,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
     speak(parts.length ? parts.join('. ') : main.innerText)
   }
 
-  const callTrusted = (id?: number) => (anna ? go({ name: 'sent', id, mode: 'calling' }) : go({ name: 'settings' }))
+  const callTrusted = (id?: number) => (trustedPerson ? go({ name: 'sent', id, mode: 'calling' }) : go({ name: 'settings' }))
 
   /* ------------------------------------------------------------ Voice */
   const [heard, setHeard] = useState<{ you: string; cat: string } | null>(null)
@@ -193,7 +217,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
               <i />
               <i />
             </span>
-            {t('readingAloud')}
+            {voiceLoading ? t('voiceGettingReady') : t('readingAloud')}
           </span>
           <button type="button" className="m-comfort-btn" onClick={toggleSlow} aria-pressed={slow}>
             <Icon name="speaker" />
@@ -253,8 +277,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
         const q = query.trim().toLowerCase()
         const results = q ? mails.filter((m) => [m.sender, m.subject, m.preview].some((s) => s.toLowerCase().includes(q))) : []
         const inInbox = mails.filter((m) => m.folder === 'inbox')
-        const attention = inInbox.filter((m) => m.verdict === 'scam')
-        const others = inInbox.filter((m) => m.verdict === 'safe')
+        const hasScam = inInbox.some((m) => m.verdict === 'scam')
         const scams = mails.filter((m) => m.folder === 'scam')
         return {
           comfort: true,
@@ -262,7 +285,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
             <>
               <button type="button" className="m-logo" onClick={() => setSheet('check')} aria-label={t('logoLabel')} aria-haspopup="dialog">
                 <span className="m-logo-cat">
-                  <ScribbleCat mood={attention.length ? 'curious' : 'awake'} />
+                  <ScribbleCat mood={hasScam ? 'curious' : 'awake'} />
                 </span>
                 <span className="m-logo-word" aria-hidden="true">
                   c@t
@@ -289,7 +312,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
                   {greet}, {prefs.name}.
                 </p>
               )}
-              <Reveal as="h1" className="m-title" key={folder} text={folder === 'inbox' ? t('inbox') : t('scamFolder')} />
+              <Reveal as="h1" className="m-title" key={folder} text={folder === 'inbox' ? t('inbox') : folder === 'scam' ? t('scamFolder') : t('sentFolder')} />
               <div className="m-search">
                 <Icon name="search" />
                 <label className="visually-hidden" htmlFor="m-search">
@@ -328,42 +351,44 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
                       {t('scamFolder')}
                       {scams.length > 0 && <span className="m-num">{scams.length}</span>}
                     </button>
+                    <button type="button" aria-pressed={folder === 'sent'} onClick={() => setFolder('sent')}>
+                      {t('sentFolder')}
+                    </button>
                   </div>
 
-                  {folder === 'inbox' ? (
+                  {folder === 'sent' ? (
+                    sentMails.length === 0 ? (
+                      <Empty mood="awake" title={t('sentEmptyTitle')} body={t('sentEmptyBody')} />
+                    ) : (
+                      <ul className="m-list">
+                        {sentMails.map((s) => (
+                          <li key={s.id}>
+                            <button type="button" className="m-mail" onClick={() => go({ name: 'sentMail', id: s.id })}>
+                              <Avatar initials={s.to.slice(0, 1).toUpperCase()} />
+                              <span className="m-mail-text">
+                                <span className="m-mail-line">
+                                  <span className="m-mail-from">{tf('toName', { name: s.to })}</span>
+                                  <span className="m-mail-time">{s.time}</span>
+                                </span>
+                                <span className="m-mail-subject">{s.subject}</span>
+                                <span className="m-mail-preview">{s.text}</span>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )
+                  ) : folder === 'inbox' ? (
                     inInbox.length === 0 ? (
                       <Empty mood="sleep" title={t('inboxEmptyTitle')} body={t('inboxEmptyBody')} />
                     ) : (
-                      <>
-                        {attention.length > 0 && (
-                          <section aria-labelledby="h-att" className="m-section">
-                            <h2 className="m-eyebrow" id="h-att">
-                              {t('needsAttention')}
-                            </h2>
-                            <ul className="m-list m-list-cards">
-                              {attention.map((m) => (
-                                <li key={m.id}>
-                                  <MailRow m={m} t={t} onOpen={() => openMail(m)} card />
-                                </li>
-                              ))}
-                            </ul>
-                          </section>
-                        )}
-                        {others.length > 0 && (
-                          <section aria-labelledby="h-oth" className="m-section">
-                            <h2 className="m-eyebrow" id="h-oth">
-                              {t('otherEmails')}
-                            </h2>
-                            <ul className="m-list">
-                              {others.map((m) => (
-                                <li key={m.id}>
-                                  <MailRow m={m} t={t} onOpen={() => openMail(m)} />
-                                </li>
-                              ))}
-                            </ul>
-                          </section>
-                        )}
-                      </>
+                      <ul className="m-list">
+                        {inInbox.map((m) => (
+                          <li key={m.id}>
+                            <MailRow m={m} t={t} onOpen={() => openMail(m)} />
+                          </li>
+                        ))}
+                      </ul>
                     )
                   ) : (
                     <>
@@ -494,9 +519,6 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
                 <Btn icon="question" onClick={() => go({ name: 'why', id: m.id })}>
                   {t('whyThink')}
                 </Btn>
-                <Btn kind="secondary" icon="wind" onClick={() => go({ name: 'breather', id: m.id })}>
-                  {t('takeBreath')}
-                </Btn>
               </After>
               <After delay={700}>
                 <div className="m-mini-mail">
@@ -532,7 +554,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
               </div>
               {m.link &&
                 (lockLinks ? (
-                  <button type="button" className="m-locked-link" onClick={() => go({ name: 'pause', id: m.id })}>
+                  <button type="button" className="m-locked-link" onClick={() => tapLink(m.id)}>
                     <Icon name="lock" />
                     <span>
                       <span className="m-locked-title">{t('linkBlocked')}</span>
@@ -542,39 +564,10 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
                     </span>
                   </button>
                 ) : (
-                  <button type="button" className="m-locked-link" onClick={() => go({ name: 'pause', id: m.id })}>
+                  <button type="button" className="m-locked-link" onClick={() => tapLink(m.id)}>
                     <span className="m-locked-title">{m.link.label}</span>
                   </button>
                 ))}
-            </>
-          ),
-        }
-      }
-
-      case 'breather': {
-        return {
-          tone: 'calm',
-          top: backBtn(),
-          body: (
-            <div className="m-breathe-wrap">
-              <Breath t={t} still={lessMotion} />
-              <Reveal as="h1" className="m-title m-center" text={t('breathTitle')} />
-              <After delay={500}>
-                <p className="m-lede m-center" data-read>
-                  {t('breathBody')}
-                </p>
-                <p className="m-small m-center m-gap">{t('breathNote')}</p>
-              </After>
-            </div>
-          ),
-          foot: (
-            <>
-              <Btn onClick={back}>{t('imReady')}</Btn>
-              {anna && (
-                <Btn kind="secondary" icon="phone" onClick={() => callTrusted(screen.id)}>
-                  {tf('callName', { name: anna })}
-                </Btn>
-              )}
             </>
           ),
         }
@@ -725,10 +718,10 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
                   <h2 className="m-eyebrow" id="h-trust">
                     {t('askTrusted')}
                   </h2>
-                  {anna ? (
+                  {trustedPerson ? (
                     <div className="m-rows">
-                      <Row icon="phone" label={tf('callName', { name: anna })} onClick={() => callTrusted(m.id)} />
-                      <Row icon="send" label={tf('sendSummaryTo', { name: anna })} onClick={() => go({ name: 'ask', id: m.id })} />
+                      <Row icon="phone" label={tf('callName', { name: trustedPerson })} onClick={() => callTrusted(m.id)} />
+                      <Row icon="send" label={tf('sendSummaryTo', { name: trustedPerson })} onClick={() => go({ name: 'ask', id: m.id })} />
                     </div>
                   ) : (
                     <div className="m-rows">
@@ -842,7 +835,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
                 <p className="m-lede" data-read>
                   {inFolder ? t('wrongBody') : t('wrongBodySafe')}
                 </p>
-                {anna && <p className="m-small m-gap">{tf('wrongNote', { name: anna })}</p>}
+                {trustedPerson && <p className="m-small m-gap">{tf('wrongNote', { name: trustedPerson })}</p>}
               </After>
             </>
           ),
@@ -860,9 +853,9 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
               >
                 {inFolder ? t('yesMoveBack') : t('notScam')}
               </Btn>
-              {anna && (
+              {trustedPerson && (
                 <Btn kind="secondary" onClick={() => go({ name: 'ask', id: m.id })}>
-                  {tf('askFirst', { name: anna })}
+                  {tf('askFirst', { name: trustedPerson })}
                 </Btn>
               )}
               <Btn kind="quiet" onClick={back}>
@@ -875,7 +868,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
 
       case 'ask': {
         const m = byId(screen.id)
-        if (!anna)
+        if (!trustedPerson)
           return {
             top: backBtn(),
             body: (
@@ -892,33 +885,39 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
           top: backBtn(),
           body: (
             <>
-              <Reveal as="h1" className="m-title" text={tf('askTitle', { name: anna })} />
+              <Reveal as="h1" className="m-title" text={tf('askTitle', { name: trustedPerson })} />
               <After delay={420}>
                 <div className="m-person">
-                  <Avatar initials={anna.slice(0, 1).toUpperCase()} size="l" />
+                  <Avatar initials={trustedPerson.slice(0, 1).toUpperCase()} size="l" />
                   <span>
-                    <span className="m-person-name">{anna}</span>
+                    <span className="m-person-name">{trustedPerson}</span>
                     <span className="m-small">{t('yourTrusted')}</span>
                   </span>
                 </div>
-                <h2 className="m-eyebrow">{tf('whatTheyGet', { name: anna })}</h2>
+                <h2 className="m-eyebrow">{tf('whatTheyGet', { name: trustedPerson })}</h2>
                 <blockquote className="m-letter" data-read>
-                  {tf('summaryMsg', { name: anna, sender: m.sender, subject: m.subject })}
+                  {tf('summaryMsg', { name: trustedPerson, sender: m.sender, subject: m.subject })}
                 </blockquote>
                 <p className="m-note">
                   <Icon name="lock" size={20} />
-                  {tf('linksRemoved', { name: anna })}
+                  {tf('linksRemoved', { name: trustedPerson })}
                 </p>
               </After>
             </>
           ),
           foot: (
             <>
-              <Btn icon="send" onClick={() => go({ name: 'sent', id: m.id, mode: 'sent' })}>
-                {tf('sendSummaryTo', { name: anna })}
+              <Btn
+                icon="send"
+                onClick={() => {
+                  recordSent(trustedPerson, tf('summarySubject', { subject: m.subject }), tf('summaryMsg', { name: trustedPerson, sender: m.sender, subject: m.subject }))
+                  go({ name: 'sent', id: m.id, mode: 'sent' })
+                }}
+              >
+                {tf('sendSummaryTo', { name: trustedPerson })}
               </Btn>
               <Btn kind="secondary" icon="phone" onClick={() => go({ name: 'sent', id: m.id, mode: 'calling' })}>
-                {tf('callInstead', { name: anna })}
+                {tf('callInstead', { name: trustedPerson })}
               </Btn>
             </>
           ),
@@ -926,7 +925,7 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
       }
 
       case 'sent': {
-        const name = anna || t('trustedName')
+        const name = trustedPerson || t('trustedName')
         if (screen.mode === 'calling')
           return {
             tone: 'calm',
@@ -988,6 +987,33 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
       case 'pause': {
         const m = byId(screen.id)
         const claim = m.claim ? t(m.claim) : m.sender
+        if (breathing)
+          return {
+            tone: 'calm',
+            top: backBtn(),
+            body: (
+              <div className="m-breathe-wrap" key="breathe">
+                <Breath t={t} still={lessMotion} />
+                <Reveal as="h1" className="m-title m-center" text={t('breathTitle')} />
+                <After delay={500}>
+                  <p className="m-lede m-center" data-read>
+                    {t('breathFast')}
+                  </p>
+                  <p className="m-small m-center m-gap">{t('breathNote')}</p>
+                </After>
+              </div>
+            ),
+            foot: (
+              <>
+                <Btn onClick={() => setBreathing(false)}>{t('calmContinue')}</Btn>
+                {trustedPerson && (
+                  <Btn kind="secondary" icon="phone" onClick={() => callTrusted(m.id)}>
+                    {tf('callName', { name: trustedPerson })}
+                  </Btn>
+                )}
+              </>
+            ),
+          }
         return {
           top: backBtn(),
           body: (
@@ -1019,9 +1045,9 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
               <Btn icon="shield" onClick={() => go({ name: 'todo', id: m.id })}>
                 {t('keepSafe')}
               </Btn>
-              {anna && (
+              {trustedPerson && (
                 <Btn kind="secondary" onClick={() => go({ name: 'ask', id: m.id })}>
-                  {tf('askFirst', { name: anna })}
+                  {tf('askFirst', { name: trustedPerson })}
                 </Btn>
               )}
               <Btn kind="quiet" onClick={() => go({ name: 'help' })}>
@@ -1032,10 +1058,41 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
         }
       }
 
+      case 'sentMail': {
+        const s = sentMails.find((x) => x.id === screen.id)
+        if (!s) return { top: backBtn(), body: null }
+        return {
+          comfort: true,
+          top: backBtn(t('sentFolder')),
+          body: (
+            <>
+              <div className="m-head">
+                <h1 className="m-subject" tabIndex={-1}>
+                  {s.subject}
+                </h1>
+                <p className="m-address">
+                  {tf('toName', { name: s.to })} · {s.time}
+                </p>
+              </div>
+              <div className="m-body" data-read>
+                {s.text.split('\n').map((p, i) => (
+                  <p key={i}>{p}</p>
+                ))}
+              </div>
+            </>
+          ),
+        }
+      }
+
       case 'write':
         return {
           top: backBtn(t('cancel')),
-          body: <Compose key={screen.replyTo ?? 'new'} replyTo={screen.replyTo !== undefined ? byId(screen.replyTo) : undefined} t={t} speak={speak} voice={voice} onSent={(to) => (showToast(fill(t('sentToast'), { name: to })), back())} />,
+          body: <Compose key={screen.replyTo ?? 'new'} replyTo={screen.replyTo !== undefined ? byId(screen.replyTo) : undefined} t={t} speak={speak} voice={voice} onSent={(to, text) => {
+                const r = screen.replyTo !== undefined ? byId(screen.replyTo) : undefined
+                recordSent(to, r ? `Re: ${r.subject}` : text.split(/[.!?\n]/)[0].trim().slice(0, 60) || t('noSubject'), text)
+                showToast(fill(t('sentToast'), { name: to }))
+                back()
+              }} />,
           foot: (
             <Btn type="submit" form="m-compose" icon="send">
               {t('send')}
@@ -1054,8 +1111,8 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
                 <Row icon="shield" label={t('howCheck')} sub={t('howCheckSub')} onClick={() => go({ name: 'how' })} />
                 <Row icon="warning" label={t('openedLink')} sub={t('openedLinkSub')} onClick={() => go({ name: 'oops' })} tone="scam" />
                 <Row icon="mic" label={t('talkToCat')} sub={t('talkSub')} onClick={() => go({ name: 'voice' })} />
-                {anna && <Row icon="phone" label={tf('callName', { name: anna })} onClick={() => callTrusted()} />}
-                <Row icon="gear" label={t('settings')} onClick={() => go({ name: 'settings' })} />
+                {trustedPerson && <Row icon="phone" label={tf('callName', { name: trustedPerson })} sub={t('yourTrusted')} onClick={() => callTrusted()} />}
+                <Row icon="gear" label={t('settings')} sub={t('settingsSub')} onClick={() => go({ name: 'settings' })} />
               </After>
             </>
           ),
@@ -1114,16 +1171,16 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
                     <span className="m-step-num" aria-hidden="true">
                       4
                     </span>
-                    <span className="m-sign-text m-strong">{anna ? tf('oops4', { name: anna }) : t('oops4none')}</span>
+                    <span className="m-sign-text m-strong">{trustedPerson ? tf('oops4', { name: trustedPerson }) : t('oops4none')}</span>
                   </li>
                 </ol>
                 {readBtn}
               </After>
             </>
           ),
-          foot: anna ? (
+          foot: trustedPerson ? (
             <Btn icon="phone" onClick={() => callTrusted()}>
-              {tf('callName', { name: anna })}
+              {tf('callName', { name: trustedPerson })}
             </Btn>
           ) : undefined,
         }
@@ -1216,9 +1273,9 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
                     {t(k)}
                   </button>
                 ))}
-                {anna && (
-                  <button type="button" className="m-chip" onClick={() => answerVoice(`call ${anna}`)}>
-                    {tf('callName', { name: anna })}
+                {trustedPerson && (
+                  <button type="button" className="m-chip" onClick={() => answerVoice(`call ${trustedPerson}`)}>
+                    {tf('callName', { name: trustedPerson })}
                   </button>
                 )}
               </div>
@@ -1359,10 +1416,10 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
               />
             )}
             <Row icon="globe" label={t('language')} onClick={() => setSheet('lang')} />
-            {anna && (
+            {trustedPerson && (
               <Row
                 icon="send"
-                label={tf('askFirst', { name: anna })}
+                label={tf('askFirst', { name: trustedPerson })}
                 onClick={() => {
                   setSheet(null)
                   go({ name: 'ask', id: sheetMail.id })
@@ -1420,9 +1477,9 @@ export default function App({ prefs, onPrefsChange, onReplayIntro }: { prefs: Pr
 
 type T = (k: StringKey) => string
 
-function MailRow({ m, t, onOpen, card }: { m: Mail; t: T; onOpen: () => void; card?: boolean }) {
+function MailRow({ m, t, onOpen, }: { m: Mail; t: T; onOpen: () => void }) {
   return (
-    <button type="button" className="m-mail" data-card={card ? 'true' : undefined} onClick={onOpen}>
+    <button type="button" className="m-mail" onClick={onOpen}>
       <Avatar initials={m.initials} />
       <span className="m-mail-text">
         <span className="m-mail-line">
@@ -1437,12 +1494,11 @@ function MailRow({ m, t, onOpen, card }: { m: Mail; t: T; onOpen: () => void; ca
           <span className="m-mail-time">{m.time}</span>
         </span>
         <span className="m-mail-subject">{m.subject}</span>
-        {m.verdict === 'scam' ? (
+        <span className="m-mail-preview">{m.preview}</span>
+        {m.verdict === 'scam' && (
           <span className="m-mail-tag">
             <VerdictTag verdict="scam" label={t('likelyScam')} size="s" />
           </span>
-        ) : (
-          <span className="m-mail-preview">{m.preview}</span>
         )}
       </span>
     </button>
@@ -1530,6 +1586,8 @@ function Breath({ t, still }: { t: T; still: boolean }) {
   )
 }
 
+type SentMail = { id: number; to: string; subject: string; text: string; time: string }
+
 function Compose({
   replyTo,
   t,
@@ -1541,13 +1599,13 @@ function Compose({
   t: T
   speak: (s: string) => void
   voice: ReturnType<typeof useListen>
-  onSent: (to: string) => void
+  onSent: (to: string, text: string) => void
 }) {
   const [to, setTo] = useState(replyTo ? replyTo.sender : '')
   const [text, setText] = useState(replyTo ? `Thank you, ${replyTo.sender.split(' ')[0]}. ` : '')
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (to.trim()) onSent(to.trim())
+    if (to.trim()) onSent(to.trim(), text.trim())
   }
   return (
     <form id="m-compose" onSubmit={submit} className="m-compose">

@@ -72,7 +72,8 @@ export function Onboarding({
   }, [step])
 
   const getStarted = () => {
-    if (mood !== 'sleep') return
+    // Coming back to the welcome page, the cat is already up: just carry on
+    if (mood !== 'sleep') return go('name')
     setMood('waking')
     later(() => setMood('awake'), 900)
     later(() => go('name'), 1350)
@@ -103,7 +104,7 @@ export function Onboarding({
 
   const primary: { label: string; onClick?: () => void; form?: string; disabled?: boolean } =
     step === 'welcome'
-      ? { label: 'Get Started', onClick: getStarted, disabled: mood !== 'sleep' }
+      ? { label: 'Get Started', onClick: getStarted, disabled: mood === 'waking' }
       : step === 'name'
         ? { label: 'Continue', form: 'ob-name-form', disabled: !trimmed || greeted }
         : step === 'trusted'
@@ -272,7 +273,7 @@ export function Onboarding({
             >
               <Reveal as="h1" className="ob-title" text="Who do you trust to help?" />
               <After delay={380}>
-                <p className="ob-body">If an email worries you, I can ask them for you. I’ll only contact them when you say so.</p>
+                <p className="ob-body">If an email worries you, you can send them a quick note or call them, right from here. Nothing is ever sent unless you tap Send.</p>
               </After>
               <After delay={540} className="ob-fields">
                 <DashInput inputRef={trustRef} label="Their name" value={trustedName} autoComplete="off" onChange={setTrustedName} align="start" small />

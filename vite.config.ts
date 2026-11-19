@@ -1,10 +1,11 @@
-import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type HtmlTagDescriptor, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import fs from 'node:fs'
 import path from 'node:path'
 
 import siteConfiguration from './.figma/make/site.json'
+import { geminiTts } from './tts-plugin'
 
 
 // Vite config — https://vitejs.dev/config/
@@ -26,6 +27,8 @@ react(),
       figmaReactRefreshBoundaryFallback(),
       figmaMakeKitPlugin({ storiesGlob: '/src/**/*.stories.{ts,tsx,js,jsx}' }),
       figmaLinkedPackageSourcemaps(),
+      // Empty prefix: read GEMINI_API_KEY server-side only; it is never exposed to the browser
+      geminiTts(loadEnv(mode, process.cwd(), '').GEMINI_API_KEY),
     ],
     resolve: {
       alias: {
